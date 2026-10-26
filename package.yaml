@@ -1,0 +1,52 @@
+name:                terra
+version:             0.1.0.0
+github:              "zaydiscool777/terra"
+license:             BSD-3-Clause
+author:              "Zayd Mohammed"
+maintainer:          "zaydiscool777@gmail.com"
+copyright:           "Zayd Mohammed"
+
+extra-source-files:
+- README.md
+# changelog is on terra.hackclub.com
+
+# Metadata used when publishing your package
+# synopsis:            Short description of your package
+# category:            game
+
+# To avoid duplicated efforts in documentation and dealing with the
+# complications of embedding Haddock markup inside cabal files, it is
+# common to point users to the README.md file.
+description:         project for terra.hackclub.com
+
+dependencies:
+- base
+- linear
+- h-raylib
+- mtl
+- lens
+
+ghc-options:
+- -Wall
+- -Wcompat
+- -Widentities
+- -Wincomplete-record-updates
+- -Wincomplete-uni-patterns
+- -Wmissing-export-lists
+- -Wmissing-home-modules
+- -Wpartial-fields
+- -Wredundant-constraints
+
+library:
+  source-dirs: src
+
+executables:
+  terra-exe:
+    main:                Main.hs
+    source-dirs:
+    - app
+    - src
+    ghc-options:
+    - -threaded
+    - -rtsopts
+    - -with-rtsopts=-N

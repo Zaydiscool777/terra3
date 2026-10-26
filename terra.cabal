@@ -1,0 +1,60 @@
+cabal-version: 2.2
+
+-- This file has been generated from package.yaml by hpack version 0.39.6.
+--
+-- see: https://github.com/sol/hpack
+
+name:           terra
+version:        0.1.0.0
+description:    project for terra.hackclub.com
+homepage:       https://github.com/zaydiscool777/terra#readme
+bug-reports:    https://github.com/zaydiscool777/terra/issues
+author:         Zayd Mohammed
+maintainer:     zaydiscool777@gmail.com
+copyright:      Zayd Mohammed
+license:        BSD-3-Clause
+license-file:   LICENSE
+build-type:     Simple
+extra-source-files:
+    README.md
+
+source-repository head
+  type: git
+  location: https://github.com/zaydiscool777/terra
+
+library
+  exposed-modules:
+      Lib
+  other-modules:
+      Paths_terra
+  autogen-modules:
+      Paths_terra
+  hs-source-dirs:
+      src
+  ghc-options: -Wall -Wcompat -Widentities -Wincomplete-record-updates -Wincomplete-uni-patterns -Wmissing-export-lists -Wmissing-home-modules -Wpartial-fields -Wredundant-constraints
+  build-depends:
+      base
+    , h-raylib
+    , lens
+    , linear
+    , mtl
+  default-language: Haskell2010
+
+executable terra-exe
+  main-is: Main.hs
+  other-modules:
+      Lib
+      Paths_terra
+  autogen-modules:
+      Paths_terra
+  hs-source-dirs:
+      app
+      src
+  ghc-options: -Wall -Wcompat -Widentities -Wincomplete-record-updates -Wincomplete-uni-patterns -Wmissing-export-lists -Wmissing-home-modules -Wpartial-fields -Wredundant-constraints -threaded -rtsopts -with-rtsopts=-N
+  build-depends:
+      base
+    , h-raylib
+    , lens
+    , linear
+    , mtl
+  default-language: Haskell2010
