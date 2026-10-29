@@ -37,6 +37,8 @@ ghc-options:
 - -Wpartial-fields
 - -Wredundant-constraints
 
+- -Wno-unused-top-binds
+
 library:
   source-dirs: src
 
