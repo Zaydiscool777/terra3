@@ -23,7 +23,6 @@ import Control.Monad.State
 import Data.Maybe
 import Control.Lens
 import Data.Bool
-import Debug.Trace
 
 -- utils
 
@@ -49,22 +48,6 @@ untilM' :: Monad m => (a -> Bool) -> m a -> m [a]
 untilM' p m = loopUntil p (lift m) ()
 
 -- lesser utils
-
-test = block a b
-  where
-    (a, b, _) =
-      (Rectangle {rectangle'x = 0.0, rectangle'y = 300.0, rectangle'width = 100.0, rectangle'height = 100.0},
-      (V2 116.770004 300.0, V2 (-10.0) 0.0, False),
-      (V2 100.0 300.0, V2 0.0 0.0, False))
-    block r@(Rectangle rx ry rw rh) t@(V2 px py, V2 tx ty, _) =
-      (if inside_v -- left
-      && (px - pr >= rx + rw) && (px + tx - pr <= rx + rw)
-      then (_1._x .~ rx + rw) . (_2._x .~ 0) else id)
-      t
-      where
-        pr = 10
-        inside_h = (px + pr >= rx) && (px - pr <= rx + rw)
-        inside_v = (py + pr >= ry) && (py - pr <= ry + rh)
 
 tilClose :: StateT Model IO () -> StateT Model IO ()
 tilClose x = void $ untilM' id (x >> liftIO windowShouldClose)
@@ -122,7 +105,7 @@ upd m (AKey KeyUp) = return $ m & air .~ True & uvel._y %~ if _air m then id els
 upd m (AKey KeyDown) = return $ m & uvel._y %~ (+ 10)
 upd m (AKey KeyLeft) = return $ m & uvel._x %~ (- 10)
 upd m (AKey KeyRight) = return $ m & uvel._x %~ (+ 10)
-upd _ (AKey KeyR) = return init'
+upd _ (AKey KeyR) = putStrLn "reset" >> return init'
 upd m AEnd = return (move m)
 upd m _ = return m
 
@@ -139,6 +122,7 @@ view' m = do
   endMode2D
   endDrawing -- presents frame to user
   drawText (unlines $ chunksOf 25 $ show m) 0 100 24 darkGray
+  print m
   waitTime 0.03
 
 -- io
@@ -171,6 +155,20 @@ tilesr = tilesr' 100 -- [Rectangle 100 100 400 125]
 center :: Vector2 -> Int -> Int -> Camera2D
 center v c d = Camera2D ((/ 2) . fromIntegral <$> V2 c d) v 0 1
 
+testmove :: Model -> IO Model
+testmove m@Model {_player = p, _uvel = v, _tvel = t, _air = a} = do
+  let
+    t1 = (v + V2 0 1 +) $ t & _x %~ (* 0.7)
+    foldrM f z0 xs = foldl c return xs z0 where c k x z = f x z >>= k
+    block' x y = block x y <$ print (x, y)
+  (p', t', a') <- foldrM block' (p, t1, a) tilesr
+  return m {_player = p' + t', _tvel = t', _air = a'}
+-- Model {_player = V2 110.0 290.0, _uvel = V2 (-10.0) 0.0, _tvel = V2 0.0 0.0, _air = False}
+-- (Rectangle {rectangle'x = 0.0, rectangle'y = 300.0, rectangle'width = 100.0, rectangle'height = 100.0},(V2 110.0 290.0,V2 (-10.0) 0.0,False))
+-- the rectangle above should block the tvel.y to 0, but it doesn't.
+-- inside_v? 300-400 no
+-- let ((Rectangle rx ry rw rh),t@(V2 px py, V2 tx ty, _)) = 
+
 move :: Model -> Model
 move m@Model {_player = p, _uvel = v, _tvel = t, _air = a} =
   m {_player = p' + t', _tvel = t', _air = a'}
@@ -179,22 +177,21 @@ move m@Model {_player = p, _uvel = v, _tvel = t, _air = a} =
     (p', t', a') = foldr block (p, t1, a) tilesr
 
 block :: Rectangle -> (Vector2, Vector2, Bool) -> (Vector2, Vector2, Bool)
-block r@(Rectangle rx ry rw rh) t@(V2 px py, V2 tx ty, _) =
-  traceShowWith (r, t,) $
+block (Rectangle rx ry rw rh) t@(V2 px py, V2 tx ty, _) =
   (if inside_h -- down (w/ floor)
   && py + pr <= ry && py + ty + pr >= ry
-  then (_1._y .~ ry) . (_2._y .~ 0) . (_3 .~ False) else id) $ 
+  then (_1._y .~ ry - pr) . (_2._y .~ 0) . (_3 .~ False) else id) $ 
   (if inside_h -- up
   && py - pr >= ry + rh && py + ty - pr <= ry + rh
-  then (_1._y .~ ry + rh) . (_2._y .~ 0) else id) $
+  then (_1._y .~ ry + rh + pr) . (_2._y .~ 0) else id) $
   (if inside_v -- right
   && px + pr <= rx && px + tx + pr >= rx
-  then (_1._x .~ rx) . (_2._x .~ 0) else id) $
+  then (_1._x .~ rx - pr) . (_2._x .~ 0) else id) $
   (if inside_v -- left
   && px - pr >= rx + rw && px + tx - pr <= rx + rw
-  then (_1._x .~ rx + rw) . (_2._x .~ 0) else id)
+  then (_1._x .~ rx + rw + pr) . (_2._x .~ 0) else id)
   t
   where
     pr = playerRad
     inside_h = px + pr >= rx && px - pr <= rx + rw
-    inside_v = py + pr >= ry && py - pr <= ry + rh
+    inside_v = py + pr > ry && py - pr <= ry + rh
