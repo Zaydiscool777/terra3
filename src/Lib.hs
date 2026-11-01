@@ -51,15 +51,9 @@ data Action =
 
 init' :: IO Model
 init' = do
-  img1i <- loadImage "./ball.png"
-  img1r <- imageResize img1i (playerRad * 2) (playerRad * 2)
-  img1 <- loadTextureFromImage img1r
-  img2i <- loadImage "./wall.png"
-  img2r <- imageResize img2i tilesLen tilesLen
-  img2 <- loadTextureFromImage img2r
-  img3i <- loadImage "./portal.png"
-  img3r <- imageResize img3i tilesLen tilesLen
-  img3 <- loadTextureFromImage img3r
+  img0 <- squaretexture (playerRad * 2) "./ball.png"
+  img1 <- squaretexture tilesLen "./wall.png"
+  img2 <- squaretexture tilesLen "./portal.png"
   return Model {
     _player = Player {
       _pos = pure 200,
@@ -68,10 +62,10 @@ init' = do
       _air = True
     },
     _image = (
-      img1,
+      img0,
       M.fromList [
-        ('1', img2),
-        ('2', img3)
+        ('1', img1),
+        ('2', img2)
       ]),
     _lvlnum = 0
   }
@@ -122,6 +116,9 @@ view' m = do
   drawText (unlines $ chunksOf 25 $ show $ m^.player) 0 100 24 darkGray
 
 -- io
+
+squaretexture :: Int -> String -> IO Texture
+squaretexture l = loadImage >=> flip (`imageResize` l) l >=> loadTextureFromImage
 
 -- thanks to https://discord.com/users/1276891525451743295
 drawtiles :: [(Char, Rectangle)] -> M.Map Char Texture -> IO ()
