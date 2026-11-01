@@ -32,6 +32,13 @@ packages:
       size: 8405
   original:
     hackage: lens-5.3.6
+- completed:
+    hackage: containers-0.7@sha256:e9b5fdcc609159410d408c47e0be13663bb0b4a42a5183b52aa0ac9c99e1dfec,2668
+    pantry-tree:
+      sha256: 265b0a6110df990b5f9f04d21856333ed5ed66f37a4b0a0215901d831f69629b
+      size: 2954
+  original:
+    hackage: containers-0.7
 snapshots:
 - completed:
     sha256: f139fd3b951e8b16a316f4a5415e1cdbf1eba392409d1f253e7d5a0069a4b3fa

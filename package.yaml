@@ -25,6 +25,7 @@ dependencies:
 - h-raylib
 - mtl
 - lens
+- containers
 
 ghc-options:
 - -Wall
