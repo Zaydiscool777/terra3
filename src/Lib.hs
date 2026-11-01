@@ -43,8 +43,7 @@ data Model = Model {
 makeLenses ''Model
 
 data Action =
-  AStart
-  | AEnd
+  AStart | AEnd
   | AKey KeyboardKey
 
 -- elm
