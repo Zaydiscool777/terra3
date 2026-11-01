@@ -1,10 +1,9 @@
 module Main (main) where
 
-import Raylib.Core as R
-import Raylib.Core.Textures as Texture
+import Raylib.Core as R (setTargetFPS, initWindow, closeWindow)
 
-import Control.Monad.State ( evalStateT )
-import Lib ( tilClose, init', tick )
+import Control.Monad.State (evalStateT)
+import Lib (init', tick, tilClose)
 
 main :: IO ()
 main = do

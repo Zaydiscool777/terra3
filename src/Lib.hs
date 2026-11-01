@@ -1,5 +1,5 @@
-{-# LANGUAGE LexicalNegation, TupleSections, TemplateHaskell #-}
-module Lib ( tilClose, init', tick ) where
+{-# LANGUAGE LexicalNegation, TemplateHaskell, MultiWayIf #-}
+module Lib (init', tick, tilClose) where
 
 import Raylib.Core as R
 -- import Raylib.Core.Audio as Audio
@@ -22,9 +22,8 @@ import Linear
 import Control.Monad
 import Control.Monad.State
 import Control.Lens
-import Data.Maybe
 import qualified Data.Map as M
-import Control.Applicative (Alternative(empty))
+import Data.Foldable
 
 -- types
 
@@ -47,8 +46,6 @@ data Action =
   AStart
   | AEnd
   | AKey KeyboardKey
-  deriving Show
-
 
 -- elm
 
@@ -60,6 +57,9 @@ init' = do
   img2i <- loadImage "./wall.png"
   img2r <- imageResize img2i tilesLen tilesLen
   img2 <- loadTextureFromImage img2r
+  img3i <- loadImage "./portal.png"
+  img3r <- imageResize img3i tilesLen tilesLen
+  img3 <- loadTextureFromImage img3r
   return Model {
     _player = Player {
       _pos = pure 200,
@@ -67,7 +67,12 @@ init' = do
       _tvel = pure 0,
       _air = True
     },
-    _image = (img1, M.fromList [('1', img2)]),
+    _image = (
+      img1,
+      M.fromList [
+        ('1', img2),
+        ('2', img3)
+      ]),
     _lvlnum = 0
   }
 
@@ -80,17 +85,19 @@ tick = do
 
 sub :: Model -> IO Model
 sub i = do
-  let i1 = upd i AStart
   x <- getKeysDown
-  let i2 = foldl' upd i1 (AKey <$> x)
+  let i1 = upd i AStart
+  let i2 = foldr (flip upd . AKey) i1 x -- thanks to https://discord.com/users/1276891525451743295
   return $ upd i2 AEnd
 
 upd :: Model -> Action -> Model
 upd m AStart = m & player.uvel .~ pure 0
-upd m (AKey KeyUp) = m & player.air .~ True & player.uvel._y %~ if m^.player.air then id else const (-22)
-upd m (AKey KeyDown) = m & player.uvel._y %~ (+ 10)
-upd m (AKey KeyLeft) = m & player.uvel._x %~ (- 10)
-upd m (AKey KeyRight) = m & player.uvel._x %~ (+ 10)
+upd m (AKey KeyUp) = m
+  & player.air .~ True
+  & player.uvel %~ (+ V2 0 (if m^.player.air then 0 else -22))
+upd m (AKey KeyDown) = m & player.uvel %~ (+ V2 0 10)
+upd m (AKey KeyLeft) = m & player.uvel %~ (- V2 10 0)
+upd m (AKey KeyRight) = m & player.uvel %~ (+ V2 10 0)
 upd m (AKey KeyR) = m & player .~
   Player {
     _pos = pure 201,
@@ -108,7 +115,7 @@ view' m = do
   w <- getScreenWidth
   h <- getScreenHeight
   beginMode2D (center (m^.player.pos) w h)
-  drawtiles (tilesr (m^.lvlnum)) (m^.image._2)
+  drawtiles ( tiles (m^.lvlnum)) (m^.image._2)
   drawplayer (m^.player.pos) (m^.image._1)
   endMode2D
   endDrawing -- presents frame to user
@@ -116,13 +123,12 @@ view' m = do
 
 -- io
 
+-- thanks to https://discord.com/users/1276891525451743295
 drawtiles :: [(Char, Rectangle)] -> M.Map Char Texture -> IO ()
-drawtiles t i = mapM_ f t -- insert monadic fold over map
-  where
-    f (id', x) =
-      case M.lookup id' i of
-        Just i' -> drawTextureV i' (V2 (x^._rectangle'x) (x^._rectangle'y)) red
-        Nothing -> return ()
+drawtiles t i =
+  for_ t (\(id', x) ->
+    for_ (M.lookup id' i) (\i' ->
+      drawTextureV i' (V2 (x^._rectangle'x) (x^._rectangle'y)) white))
 
 drawplayer :: Vector2 -> Texture -> IO ()
 drawplayer v i = drawTextureV i (v - pure playerRad) white
@@ -137,30 +143,40 @@ move l m@Player {_pos = p, _uvel = v, _tvel = t, _air = a} =
   m {_pos = p' + t', _tvel = t', _air = a'}
   where
     t1 = (v + V2 0 1 +) $ t & _x %~ (* 0.7)
-    (p', t', a') = foldr block (p, t1, a) [y | (x, y) <- tilesr l, x == '1']
+    (p', t', a') = foldr block (p, t1, a) [y | (x, y) <-  tiles l, x == '1']
 
 block :: Rectangle -> (Vector2, Vector2, Bool) -> (Vector2, Vector2, Bool)
-block (Rectangle rx ry rw rh) t@(V2 px py, V2 tx ty, _) =
-  (if inside_h -- down (w/ floor)
-  && py + pr <= ry && py + ty + pr >= ry
-  then (_1._y .~ ry - pr) . (_2._y .~ 0) . (_3 .~ False) else id) $ 
-  (if inside_h -- up
-  && py - pr >= ry + rh && py + ty - pr <= ry + rh
-  then (_1._y .~ ry + rh + pr) . (_2._y .~ 0) else id) $
-  (if inside_v -- right
-  && px + pr <= rx && px + tx + pr >= rx
-  then (_1._x .~ rx - pr) . (_2._x .~ 0) else id) $
-  (if inside_v -- left
-  && px - pr >= rx + rw && px + tx - pr <= rx + rw
-  then (_1._x .~ rx + rw + pr) . (_2._x .~ 0) else id)
-  t
+block (Rectangle rx ry rw rh) t@(V2 px py, V2 tx ty, _) = (blockv . blockh) t
   where
     pr = playerRad
-    inside_h = px + pr > rx && px - pr < rx + rw
-    inside_v = py + pr > ry && py - pr < ry + rh
+    -- thanks to https://discord.com/users/1276891525451743295
+    blockv = if
+      | not (px + pr > rx && px - pr < rx + rw) -> id
+      | py + pr <= ry && py + ty + pr >= ry
+        -> (_1._y .~ ry - pr) . (_2._y .~ 0) . (_3 .~ False)
+      | py - pr >= ry + rh && py + ty - pr <= ry + rh
+        -> (_1._y .~ ry + rh + pr) . (_2._y .~ 0)
+      | otherwise -> id
+    blockh = if
+      | not (py + pr > ry && py - pr < ry + rh) -> id
+      | px + pr <= rx && px + tx + pr >= rx
+        -> (_1._x .~ rx - pr) . (_2._x .~ 0)
+      | px - pr >= rx + rw && px + tx - pr <= rx + rw
+        -> (_1._x .~ rx + rw + pr) . (_2._x .~ 0)
+      | otherwise -> id
 
 inputted :: Model -> Model
-inputted m = m & player %~ move (m^.lvlnum) 
+inputted m = m
+  & player %~ move (m^.lvlnum)
+  & lvlnum %~ chlvl (m^.player.pos)
+
+chlvl :: Vector2 -> Int -> Int
+chlvl p l = if any ((== '2') . fst) at_blocks then succ l else l
+  where
+    at_blocks = [b | b@(_, x) <- tiles l, V2 (x^._rectangle'x) (x^._rectangle'y) == rounded p]
+rounded :: Vector2 -> Vector2
+rounded p = (fromIntegral :: Int -> Float) . (* 100) . (`div` 100) . floor <$> p
+-- ('2', Rectangle {rectangle'x = 1000.0, rectangle'y = 400.0, rectangle'width = 100.0, rectangle'height = 100.0})
 
 -- utils
 
@@ -201,23 +217,29 @@ getKeysDown = filterM isKeyDown (toEnum <$> keysint)
 
 -- data 
 
-tilesr :: Int -> [(Char, Rectangle)]
-tilesr i = (\(id', row, col) -> (id', Rectangle (col * k) (row * k) k k)) <$> tiles !! i
-  where k = tilesLen
-
-tiles :: [[(Char, Float, Float)]]
-tiles = map makeTiles
-  [lines
-    "       1\n\
-    \1 11111111111\n\
-    \1\n\
-    \111111   11111\n\
-    \ \n\
-    \   111111111",
-  []]
+tiles :: Int -> [(Char, Rectangle)]
+tiles i = (\(id', col, row) -> (id', Rectangle (col * k) (row * k) k k)) <$> tiles' !! i
+  where
+    k = tilesLen
+    tiles' = map (makeTiles . lines)
+      [
+        "       1      \n\
+        \1 11111111111 \n\
+        \1             \n\
+        \111111   11111\n\
+        \          2   \n\
+        \   111111111  ",
+        
+        "              \n\
+        \1 11 11   111 \n\
+        \   2   1      \n\
+        \11  11  11   1\n\
+        \              \n\
+        \   11  1 11   "
+      ]
 
 makeTiles :: [String] -> [(Char, Float, Float)]
-makeTiles = join . zipWith (\i r -> catMaybes $ zipWith (\j x -> Just (x, i, j)) [0..] r) [0..]
+makeTiles = join . zipWith (\i r -> zipWith (\j x -> (x, j, i)) [0..] r) [0..]
 
 playerRad, tilesLen :: Num a => a
 playerRad = 15
