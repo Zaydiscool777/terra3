@@ -15,3 +15,4 @@ How to run: it's an elf file, so on linux:
 - `chmod +x` the file
 - `./[file]` the file
 - Esc or close button to close
+note: that is a dash not a dot
